@@ -1,0 +1,26 @@
+# Rust build output
+**/target/
+
+# Rust toolchain / formatting backups (optional)
+**/*.rs.bk
+
+# Cargo.lock
+# Keep Cargo.lock for binary apps
+# Ignore for libraries (optional)
+# Cargo.lock
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# IntelliJ / CLion / JetBrains
+.idea/
+*.iml
+
+# Logs
+*.log
+
+# Env files (if you use them)
+.env
