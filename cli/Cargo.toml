@@ -1,0 +1,32 @@
+[package]
+name = "insta-cli"
+version = "0.1.0"
+edition = "2021"
+description = "A CLI for Instagram DMs"
+
+[dependencies]
+# CLI
+clap = { version = "4", features = ["derive"] }
+dialoguer = { version = "0.11", features = ["password"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# RSA encryption
+rsa = { version = "0.9", features = ["sha2"] }
+rand = "0.8"
+base64 = "0.22"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# Terminal formatting
+colored = "3"

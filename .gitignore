@@ -1,7 +1,7 @@
 # Rust build output
 **/target/
 
-# Rust toolchain / formatting backups (optional)
+# Rust toolchain / formatting backups
 **/*.rs.bk
 
 # Cargo.lock
@@ -9,8 +9,69 @@
 # Ignore for libraries (optional)
 # Cargo.lock
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.env.local
+.env.*.local
+
+# Python testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# mypy / type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# Jupyter
+.ipynb_checkpoints/
+
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
 
 # VS Code
 .vscode/
@@ -18,9 +79,59 @@
 # IntelliJ / CLion / JetBrains
 .idea/
 *.iml
+*.iws
+*.ipr
 
 # Logs
 *.log
+logs/
 
-# Env files (if you use them)
+# Env files
 .env
+.env.*
+!.env.example
+
+# Instagram session files
+.ig_session.json
+*_session.json
+*session*.json
+
+# Secrets / credentials
+*.pem
+*.key
+.keys/
+server/.keys/
+secrets/
+credentials.json
+*credentials*
+*secret*
+
+# RSA keys
+private.pem
+public.pem
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Package managers
+uv.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Compiled binaries
+insta-cli
+ig
+
+# Local user bin (if accidentally copied)
+.local/
