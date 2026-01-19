@@ -30,7 +30,7 @@ from models import (
     User,
 )
 from instagram import instagram_client
-from crypto import get_public_key_pem, decrypt_password, ensure_keys_exist
+from middleware import get_public_key_pem, decrypt_password, ensure_keys_exist
 
 # Configure logging
 logging.basicConfig(
