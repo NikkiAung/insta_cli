@@ -5,6 +5,7 @@ use dialoguer::Input;
 
 use crate::client::ApiClient;
 use crate::colors::Theme;
+use crate::spinner::create_spinner;
 
 /// Send a message to a user (interactive or with provided message)
 pub async fn send_to_user(client: &ApiClient, username: &str, message: Option<&str>) -> Result<()> {
@@ -23,9 +24,12 @@ pub async fn send_to_user(client: &ApiClient, username: &str, message: Option<&s
         return Ok(());
     }
 
-    println!("{}", Theme::muted(&format!("Sending to @{}...", username)));
+    let spinner = create_spinner(&format!("Sending to @{}...", username));
 
-    match client.send_to_user(username, &text).await {
+    let result = client.send_to_user(username, &text).await;
+    spinner.finish_and_clear();
+
+    match result {
         Ok(response) => {
             if response.success {
                 println!(
@@ -70,9 +74,12 @@ pub async fn send_to_thread(
         return Ok(());
     }
 
-    println!("{}", Theme::muted("Sending message..."));
+    let spinner = create_spinner("Sending message...");
 
-    match client.send_to_thread(thread_id, &text).await {
+    let result = client.send_to_thread(thread_id, &text).await;
+    spinner.finish_and_clear();
+
+    match result {
         Ok(response) => {
             if response.success {
                 println!("{} {}", Theme::check(), Theme::success("Message sent!"));
@@ -112,7 +119,11 @@ pub async fn chat_with_user(client: &ApiClient, username: &str) -> Result<()> {
             break;
         }
 
-        match client.send_to_user(username, &text).await {
+        let spinner = create_spinner("Sending...");
+        let result = client.send_to_user(username, &text).await;
+        spinner.finish_and_clear();
+
+        match result {
             Ok(response) => {
                 if response.success {
                     println!("{} {}", Theme::check(), Theme::muted("Sent"));

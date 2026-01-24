@@ -5,6 +5,7 @@ use dialoguer::{Input, Password};
 
 use crate::client::ApiClient;
 use crate::colors::Theme;
+use crate::spinner::create_spinner;
 
 /// Interactive login with encrypted password
 pub async fn login_interactive(client: &ApiClient) -> Result<()> {
@@ -27,10 +28,13 @@ pub async fn login_interactive(client: &ApiClient) -> Result<()> {
         .interact()?;
 
     println!();
-    println!("{}", Theme::muted("Authenticating..."));
+    let spinner = create_spinner("Authenticating...");
 
     // Attempt login with encrypted password
-    match client.login(&username, &password).await {
+    let result = client.login(&username, &password).await;
+    spinner.finish_and_clear();
+
+    match result {
         Ok(response) => {
             if response.success {
                 println!("{} {}", Theme::check(), Theme::success("Login successful!"));
@@ -64,9 +68,12 @@ pub async fn login_with_credentials(
     username: &str,
     password: &str,
 ) -> Result<()> {
-    println!("{}", Theme::muted("Authenticating..."));
+    let spinner = create_spinner("Authenticating...");
 
-    match client.login(username, password).await {
+    let result = client.login(username, password).await;
+    spinner.finish_and_clear();
+
+    match result {
         Ok(response) => {
             if response.success {
                 println!("{} {}", Theme::check(), Theme::success("Login successful!"));
@@ -96,16 +103,23 @@ pub async fn login_with_credentials(
 
 /// Logout from Instagram
 pub async fn logout(client: &ApiClient) -> Result<()> {
-    println!("{}", Theme::muted("Logging out..."));
+    let spinner = create_spinner("Logging out...");
 
     client.logout().await?;
+    spinner.finish_and_clear();
+
     println!("{} {}", Theme::check(), Theme::success("Logged out successfully"));
     Ok(())
 }
 
 /// Check authentication status
 pub async fn status(client: &ApiClient) -> Result<()> {
-    match client.health().await {
+    let spinner = create_spinner("Checking status...");
+
+    let result = client.health().await;
+    spinner.finish_and_clear();
+
+    match result {
         Ok(health) => {
             println!("{}", Theme::header("Server Status"));
             println!("{}", Theme::separator(40));
@@ -144,7 +158,12 @@ pub async fn status(client: &ApiClient) -> Result<()> {
 
 /// Show current logged-in user info
 pub async fn show_me(client: &ApiClient) -> Result<()> {
-    match client.health().await {
+    let spinner = create_spinner("Loading profile...");
+
+    let result = client.health().await;
+    spinner.finish_and_clear();
+
+    match result {
         Ok(health) => {
             if health.authenticated {
                 println!();
@@ -182,9 +201,12 @@ pub async fn search_user(client: &ApiClient, query: &str) -> Result<()> {
     // Remove @ prefix if present
     let username = query.trim_start_matches('@');
 
-    println!("{}", Theme::muted(&format!("Searching for @{}...", username)));
+    let spinner = create_spinner(&format!("Searching for @{}...", username));
 
-    match client.search_user(username).await {
+    let result = client.search_user(username).await;
+    spinner.finish_and_clear();
+
+    match result {
         Ok(response) => {
             if let Some(user) = response.user {
                 println!();

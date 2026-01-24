@@ -6,12 +6,16 @@ use crate::client::ApiClient;
 use crate::colors::Theme;
 use crate::models::Thread;
 use crate::commands::chat_with_user;
+use crate::spinner::create_spinner;
 
 /// Display inbox (list of conversations)
 pub async fn show_inbox(client: &ApiClient, limit: u32, unread_only: bool) -> Result<()> {
-    println!("{}", Theme::muted("Fetching inbox..."));
+    let spinner = create_spinner("Fetching inbox...");
 
-    let response = client.get_inbox(limit).await?;
+    let response = client.get_inbox(limit).await;
+    spinner.finish_and_clear();
+
+    let response = response?;
 
     if !response.success {
         println!(
@@ -63,9 +67,12 @@ pub async fn show_inbox(client: &ApiClient, limit: u32, unread_only: bool) -> Re
 
 /// Display a specific thread with messages
 pub async fn show_thread(client: &ApiClient, thread_id: &str, limit: u32) -> Result<()> {
-    println!("{}", Theme::muted("Fetching messages..."));
+    let spinner = create_spinner("Fetching messages...");
 
-    let response = client.get_thread(thread_id, limit).await?;
+    let response = client.get_thread(thread_id, limit).await;
+    spinner.finish_and_clear();
+
+    let response = response?;
 
     if !response.success {
         println!(
@@ -227,9 +234,12 @@ pub async fn open_by_number(client: &ApiClient, number: usize) -> Result<()> {
         return Ok(());
     }
 
-    println!("{}", Theme::muted("Fetching inbox..."));
+    let spinner = create_spinner("Fetching inbox...");
 
-    let response = client.get_inbox(number as u32).await?;
+    let response = client.get_inbox(number as u32).await;
+    spinner.finish_and_clear();
+
+    let response = response?;
 
     if !response.success {
         println!(
@@ -273,10 +283,13 @@ pub async fn show_thread_or_user(client: &ApiClient, target: &str, limit: u32) -
 
 /// Show thread by username (finds the thread first)
 async fn show_thread_by_username(client: &ApiClient, username: &str, limit: u32) -> Result<()> {
-    println!("{}", Theme::muted(&format!("Finding conversation with @{}...", username)));
+    let spinner = create_spinner(&format!("Finding conversation with @{}...", username));
 
     // Fetch inbox to find the thread
-    let response = client.get_inbox(100).await?;
+    let response = client.get_inbox(100).await;
+    spinner.finish_and_clear();
+
+    let response = response?;
 
     if !response.success {
         println!(

@@ -8,6 +8,7 @@ mod colors;
 mod commands;
 mod crypto;
 mod models;
+mod spinner;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
