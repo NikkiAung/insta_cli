@@ -30,4 +30,3 @@ thiserror = "2"
 
 # Terminal formatting
 colored = "3"
-indicatif = "0.17"
