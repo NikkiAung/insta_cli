@@ -2,7 +2,7 @@
 
 # Instagram Direct Messages from your terminal
 
-https://github.com/user-attachments/assets/ce7b1668-172e-4813-a63c-13121f9e636b
+https://github.com/user-attachments/assets/c283e4a7-47eb-479b-9f73-3dbf15031637
 
 ![IG DM CLI Banner](assets/insta-banner.png)
 
