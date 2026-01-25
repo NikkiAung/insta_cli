@@ -10,6 +10,7 @@ use crate::models::*;
 const DEFAULT_SERVER_URL: &str = "http://localhost:8000";
 
 /// Instagram DM API client
+#[derive(Clone)]
 pub struct ApiClient {
     client: Client,
     base_url: String,

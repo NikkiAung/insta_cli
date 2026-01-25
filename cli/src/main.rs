@@ -116,6 +116,12 @@ enum Commands {
         /// Username to chat with (without @)
         username: String,
     },
+
+    /// Live chat mode with real-time message updates
+    Live {
+        /// Username to chat with (without @)
+        username: String,
+    },
 }
 
 #[tokio::main]
@@ -186,5 +192,7 @@ async fn main() -> Result<()> {
         }
 
         Commands::Chat { username } => commands::chat_with_user(&client, &username).await,
+
+        Commands::Live { username } => commands::live_chat_with_user(&client, &username).await,
     }
 }
