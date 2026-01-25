@@ -7,6 +7,7 @@ description = "A CLI for Instagram DMs"
 [dependencies]
 # CLI
 clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
 dialoguer = { version = "0.11", features = ["password"] }
 
 # HTTP client

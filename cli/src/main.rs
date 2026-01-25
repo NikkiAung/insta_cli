@@ -12,14 +12,16 @@ mod models;
 mod spinner;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::{generate, Shell};
+use std::io;
 
 use client::ApiClient;
 use colors::Theme;
 
 /// Instagram DM CLI - Manage your Instagram DMs from the terminal
 #[derive(Parser)]
-#[command(name = "insta")]
+#[command(name = "ig")]
 #[command(author, version, about, long_about = None)]
 struct Cli {
     /// Server URL (default: http://localhost:8000)
@@ -121,6 +123,13 @@ enum Commands {
         /// Username to chat with (without @)
         username: String,
     },
+
+    /// Generate shell completions
+    Completions {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: Shell,
+    },
 }
 
 #[tokio::main]
@@ -207,6 +216,13 @@ async fn main() -> Result<()> {
                 Err(_) => Vec::new(), // Fall back to empty list if can't fetch
             };
             commands::chat_with_user(&client, &username, usernames).await
+        }
+
+        Commands::Completions { shell } => {
+            let mut cmd = Cli::command();
+            let name = cmd.get_name().to_string();
+            generate(shell, &mut cmd, name, &mut io::stdout());
+            Ok(())
         }
     }
 }
