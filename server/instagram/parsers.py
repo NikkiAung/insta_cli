@@ -106,12 +106,16 @@ def parse_thread_preview(thread: IGDirectThread) -> DirectThreadPreview:
     # Get last message info
     last_msg_text = None
     last_msg_type = None
-    last_msg_timestamp = None
+    # Use last_activity_at as primary timestamp (more reliable for inbox)
+    # Fall back to message timestamp if available
+    last_msg_timestamp = getattr(thread, 'last_activity_at', None)
 
     if thread.messages:
         last_msg = thread.messages[0]
         last_msg_type = last_msg.item_type or "unknown"
-        last_msg_timestamp = last_msg.timestamp
+        # Use message timestamp if last_activity_at not available
+        if not last_msg_timestamp:
+            last_msg_timestamp = last_msg.timestamp
 
         if last_msg.text:
             last_msg_text = last_msg.text

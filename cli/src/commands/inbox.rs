@@ -1,9 +1,17 @@
 //! Inbox and thread commands
 
 use anyhow::Result;
+use colored::Colorize;
+use std::io::{self, Write};
+use crossterm::{
+    cursor,
+    event::{self, Event, KeyCode, KeyEventKind},
+    execute,
+    terminal::{self, ClearType},
+};
 
 use crate::client::ApiClient;
-use crate::colors::Theme;
+use crate::colors::{Theme, instagram};
 use crate::models::Thread;
 use crate::commands::chat_with_user;
 use crate::spinner::create_spinner;
@@ -166,11 +174,11 @@ fn print_thread_summary(index: usize, thread: &Thread) {
         " ".to_string()
     };
 
-    // Time
+    // Time (colored based on recency)
     let time = thread
         .last_message_timestamp
         .as_ref()
-        .map(|t| format_time_ago(t))
+        .map(|t| format_time_ago_colored(t))
         .unwrap_or_default();
 
     // Show: "1. Display Name (@username) 13d"
@@ -179,51 +187,83 @@ fn print_thread_summary(index: usize, thread: &Thread) {
         Theme::muted(&index.to_string()),
         Theme::orange(&title),
         Theme::username(&format!("@{}", username)),
-        Theme::timestamp(&time),
+        time,  // Already colored
         unread
     );
     println!("     {} {}", Theme::muted("└"), preview);
 }
 
-/// Format ISO timestamp to relative time
+/// Format ISO timestamp to relative time (plain string)
 fn format_time_ago(timestamp: &str) -> String {
-    // Parse "2026-01-14T12:33:38" format
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    let (text, _) = parse_time_ago(timestamp);
+    text
+}
 
-    // Simple parsing - extract date parts
-    let parts: Vec<&str> = timestamp.split('T').collect();
-    if parts.len() != 2 {
-        return String::new();
-    }
+/// Format ISO timestamp to colored relative time
+fn format_time_ago_colored(timestamp: &str) -> String {
+    let (text, age_type) = parse_time_ago(timestamp);
 
-    let date_parts: Vec<u32> = parts[0].split('-').filter_map(|s| s.parse().ok()).collect();
-    let time_parts: Vec<u32> = parts[1].split(':').filter_map(|s| s.parse().ok()).collect();
-
-    if date_parts.len() != 3 || time_parts.len() < 2 {
-        return String::new();
-    }
-
-    // Rough calculation (not accounting for timezones)
-    let days_since_epoch = (date_parts[0] - 1970) * 365 + (date_parts[1] - 1) * 30 + date_parts[2];
-    let secs = (days_since_epoch as u64) * 86400 + (time_parts[0] as u64) * 3600 + (time_parts[1] as u64) * 60;
-
-    let msg_time = UNIX_EPOCH + Duration::from_secs(secs);
-    let now = SystemTime::now();
-
-    match now.duration_since(msg_time) {
-        Ok(duration) => {
-            let secs = duration.as_secs();
-            if secs < 60 {
-                "now".to_string()
-            } else if secs < 3600 {
-                format!("{}m", secs / 60)
-            } else if secs < 86400 {
-                format!("{}h", secs / 3600)
-            } else {
-                format!("{}d", secs / 86400)
-            }
+    match age_type {
+        TimeAge::Now => format!("{}", text.truecolor(46, 204, 113)), // Green
+        TimeAge::Minutes => {
+            let (r, g, b) = instagram::BLUE;
+            format!("{}", text.truecolor(r, g, b))
         }
-        Err(_) => String::new(),
+        TimeAge::Hours => {
+            let (r, g, b) = instagram::ORANGE;
+            format!("{}", text.truecolor(r, g, b))
+        }
+        TimeAge::Days => {
+            let (r, g, b) = instagram::LIGHT_GRAY;
+            format!("{}", text.truecolor(r, g, b))
+        }
+        TimeAge::Unknown => text,
+    }
+}
+
+/// Time age categories for coloring
+enum TimeAge {
+    Now,
+    Minutes,
+    Hours,
+    Days,
+    Unknown,
+}
+
+/// Parse ISO timestamp to relative time with age category
+fn parse_time_ago(timestamp: &str) -> (String, TimeAge) {
+    use chrono::{Local, NaiveDateTime, TimeZone};
+
+    // Parse "2026-01-24T16:07:11" format (ISO 8601 without timezone)
+    let naive = match NaiveDateTime::parse_from_str(timestamp, "%Y-%m-%dT%H:%M:%S") {
+        Ok(dt) => dt,
+        Err(_) => return (String::new(), TimeAge::Unknown),
+    };
+
+    // Treat the timestamp as local time
+    let msg_time = match Local.from_local_datetime(&naive).single() {
+        Some(dt) => dt,
+        None => return (String::new(), TimeAge::Unknown),
+    };
+
+    let now = Local::now();
+    let duration = now.signed_duration_since(msg_time);
+    let secs = duration.num_seconds();
+
+    if secs < 0 {
+        // Future timestamp (shouldn't happen, but handle gracefully)
+        return ("now".to_string(), TimeAge::Now);
+    }
+
+    let secs = secs as u64;
+    if secs < 60 {
+        ("now".to_string(), TimeAge::Now)
+    } else if secs < 3600 {
+        (format!("{}m", secs / 60), TimeAge::Minutes)
+    } else if secs < 86400 {
+        (format!("{}h", secs / 3600), TimeAge::Hours)
+    } else {
+        (format!("{}d", secs / 86400), TimeAge::Days)
     }
 }
 
@@ -320,4 +360,181 @@ async fn show_thread_by_username(client: &ApiClient, username: &str, limit: u32)
             Ok(())
         }
     }
+}
+
+/// Interactive inbox with arrow key navigation
+pub async fn show_inbox_interactive(client: &ApiClient, limit: u32) -> Result<()> {
+    let spinner = create_spinner("Fetching inbox");
+
+    let response = client.get_inbox(limit).await;
+    spinner.finish_and_clear();
+
+    let response = response?;
+
+    if !response.success {
+        println!(
+            "{} {}",
+            Theme::cross(),
+            Theme::error(&response.error.unwrap_or("Failed to fetch inbox".to_string()))
+        );
+        return Ok(());
+    }
+
+    let threads = response.threads.unwrap_or_default();
+
+    if threads.is_empty() {
+        println!("{}", Theme::muted("No conversations found."));
+        return Ok(());
+    }
+
+    // Enter raw mode for keyboard input
+    terminal::enable_raw_mode()?;
+    let mut stdout = io::stdout();
+
+    // Hide cursor
+    execute!(stdout, cursor::Hide)?;
+
+    let mut selected: usize = 0;
+    let mut should_open: Option<usize> = None;
+
+    loop {
+        // Clear screen and draw
+        execute!(stdout, cursor::MoveTo(0, 0), terminal::Clear(ClearType::All))?;
+
+        // Header
+        let header = format!("{}", Theme::header("Inbox"));
+        writeln!(stdout, "\r\n{}", header)?;
+        writeln!(stdout, "\r{}", Theme::separator(60))?;
+
+        // Draw threads
+        for (i, thread) in threads.iter().enumerate() {
+            let is_selected = i == selected;
+            print_thread_interactive(&mut stdout, i + 1, thread, is_selected)?;
+        }
+
+        // Footer
+        writeln!(stdout, "\r{}", Theme::separator(60))?;
+        writeln!(
+            stdout,
+            "\r{}",
+            Theme::muted("↑/↓: Navigate  Enter: Open chat  q: Quit")
+        )?;
+
+        stdout.flush()?;
+
+        // Handle input
+        if let Event::Key(key_event) = event::read()? {
+            if key_event.kind == KeyEventKind::Press {
+                match key_event.code {
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        if selected > 0 {
+                            selected -= 1;
+                        }
+                    }
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        if selected < threads.len() - 1 {
+                            selected += 1;
+                        }
+                    }
+                    KeyCode::Enter => {
+                        should_open = Some(selected);
+                        break;
+                    }
+                    KeyCode::Char('q') | KeyCode::Esc => {
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    // Restore terminal
+    execute!(stdout, cursor::Show, terminal::Clear(ClearType::All), cursor::MoveTo(0, 0))?;
+    terminal::disable_raw_mode()?;
+
+    // Open selected chat if user pressed Enter
+    if let Some(idx) = should_open {
+        let thread = &threads[idx];
+        let username = thread.users.first().map(|u| u.username.as_str()).unwrap_or("unknown");
+        chat_with_user(client, username).await?;
+    }
+
+    Ok(())
+}
+
+/// Print a thread summary for interactive view
+fn print_thread_interactive(
+    stdout: &mut io::Stdout,
+    index: usize,
+    thread: &Thread,
+    is_selected: bool,
+) -> Result<()> {
+    let username = thread.users.first().map(|u| u.username.as_str()).unwrap_or("unknown");
+
+    let title = thread
+        .thread_title
+        .clone()
+        .unwrap_or_else(|| username.to_string());
+
+    let preview = thread
+        .last_message_text
+        .clone()
+        .unwrap_or_else(|| "[media]".to_string());
+
+    // Truncate preview
+    let preview = if preview.chars().count() > 35 {
+        format!("{}...", preview.chars().take(35).collect::<String>())
+    } else {
+        preview
+    };
+
+    // Unread indicator
+    let unread = if thread.has_unread.unwrap_or(false) {
+        format!("{}", Theme::unread_dot())
+    } else {
+        " ".to_string()
+    };
+
+    // Time (colored based on recency)
+    let time = thread
+        .last_message_timestamp
+        .as_ref()
+        .map(|t| format_time_ago_colored(t))
+        .unwrap_or_default();
+
+    // Selection indicator and highlighting
+    let (indicator, highlight_start, highlight_end) = if is_selected {
+        let (r, g, b) = instagram::PINK;
+        (
+            format!("\x1b[38;2;{};{};{}m►\x1b[0m", r, g, b),
+            format!("\x1b[48;2;60;60;60m"), // Dark background for highlight
+            "\x1b[0m".to_string(),
+        )
+    } else {
+        (" ".to_string(), String::new(), String::new())
+    };
+
+    writeln!(
+        stdout,
+        "\r{} {}{:>2}. {} {} {} {}{}",
+        indicator,
+        highlight_start,
+        index,
+        Theme::orange(&title),
+        Theme::username(&format!("@{}", username)),
+        time,  // Already colored
+        unread,
+        highlight_end
+    )?;
+    writeln!(
+        stdout,
+        "\r       {}{} {}{}",
+        highlight_start,
+        Theme::muted("└"),
+        preview,
+        highlight_end
+    )?;
+
+    Ok(())
 }

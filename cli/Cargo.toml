@@ -30,3 +30,5 @@ thiserror = "2"
 
 # Terminal formatting
 colored = "3"
+crossterm = "0.28"
+chrono = "0.4"

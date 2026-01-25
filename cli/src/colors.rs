@@ -115,8 +115,31 @@ impl Theme {
         text.truecolor(r, g, b).bold()
     }
 
-    /// Timestamps
+    /// Timestamps (default gray)
     pub fn timestamp(text: &str) -> ColoredString {
+        let (r, g, b) = instagram::LIGHT_GRAY;
+        text.truecolor(r, g, b)
+    }
+
+    /// Timestamp - just now (green)
+    pub fn timestamp_now(text: &str) -> ColoredString {
+        text.truecolor(46, 204, 113) // Green
+    }
+
+    /// Timestamp - minutes ago (blue)
+    pub fn timestamp_minutes(text: &str) -> ColoredString {
+        let (r, g, b) = instagram::BLUE;
+        text.truecolor(r, g, b)
+    }
+
+    /// Timestamp - hours ago (orange)
+    pub fn timestamp_hours(text: &str) -> ColoredString {
+        let (r, g, b) = instagram::ORANGE;
+        text.truecolor(r, g, b)
+    }
+
+    /// Timestamp - days ago (gray/muted)
+    pub fn timestamp_days(text: &str) -> ColoredString {
         let (r, g, b) = instagram::LIGHT_GRAY;
         text.truecolor(r, g, b)
     }

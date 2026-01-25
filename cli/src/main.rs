@@ -63,6 +63,10 @@ enum Commands {
         /// Show only unread conversations
         #[arg(short = 'u', long)]
         unread: bool,
+
+        /// Interactive mode with arrow key navigation
+        #[arg(short, long)]
+        interactive: bool,
     },
 
     /// Open chat by inbox number (eg: ig open 1)
@@ -157,7 +161,13 @@ async fn main() -> Result<()> {
 
         Commands::Me => commands::show_me(&client).await,
 
-        Commands::Inbox { limit, unread } => commands::show_inbox(&client, limit, unread).await,
+        Commands::Inbox { limit, unread, interactive } => {
+            if interactive {
+                commands::show_inbox_interactive(&client, limit).await
+            } else {
+                commands::show_inbox(&client, limit, unread).await
+            }
+        }
 
         Commands::Open { number } => commands::open_by_number(&client, number).await,
 
