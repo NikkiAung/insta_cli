@@ -3,6 +3,7 @@
 use anyhow::Result;
 use colored::Colorize;
 use std::io::{self, Write};
+use std::time::Duration;
 use crossterm::{
     cursor,
     event::{self, Event, KeyCode, KeyEventKind},
@@ -69,6 +70,150 @@ pub async fn show_inbox(client: &ApiClient, limit: u32, unread_only: bool) -> Re
         "{}",
         Theme::muted(&format!("Showing {} conversations", threads.len()))
     );
+
+    Ok(())
+}
+
+/// Watch mode - auto-refresh inbox every N seconds
+pub async fn show_inbox_watch(client: &ApiClient, limit: u32, unread_only: bool, interval: u64) -> Result<()> {
+    // Enable raw mode for keyboard detection
+    terminal::enable_raw_mode()?;
+    let mut stdout = io::stdout();
+
+    // Hide cursor
+    execute!(stdout, cursor::Hide)?;
+
+    loop {
+        // Clear screen
+        execute!(stdout, terminal::Clear(ClearType::All), cursor::MoveTo(0, 0))?;
+
+        // Fetch inbox
+        let response = client.get_inbox(limit).await;
+
+        match response {
+            Ok(response) => {
+                if !response.success {
+                    writeln!(
+                        stdout,
+                        "\r{} {}",
+                        Theme::cross(),
+                        Theme::error(&response.error.unwrap_or("Failed to fetch inbox".to_string()))
+                    )?;
+                } else {
+                    let threads = response.threads.unwrap_or_default();
+
+                    // Filter to unread only if flag is set
+                    let threads: Vec<_> = if unread_only {
+                        threads.into_iter().filter(|t| t.has_unread.unwrap_or(false)).collect()
+                    } else {
+                        threads
+                    };
+
+                    // Header
+                    writeln!(stdout, "\r")?;
+                    if unread_only {
+                        writeln!(stdout, "\r{} {}", Theme::header("Inbox"), Theme::blue("(unread)"))?;
+                    } else {
+                        writeln!(stdout, "\r{}", Theme::header("Inbox"))?;
+                    }
+                    writeln!(stdout, "\r{}", Theme::separator(60))?;
+
+                    if threads.is_empty() {
+                        if unread_only {
+                            writeln!(stdout, "\r{}", Theme::muted("No unread conversations."))?;
+                        } else {
+                            writeln!(stdout, "\r{}", Theme::muted("No conversations found."))?;
+                        }
+                    } else {
+                        for (i, thread) in threads.iter().enumerate() {
+                            print_thread_summary_watch(&mut stdout, i + 1, thread)?;
+                        }
+                    }
+
+                    writeln!(stdout, "\r{}", Theme::separator(60))?;
+                    writeln!(
+                        stdout,
+                        "\r{} {} {}",
+                        Theme::muted(&format!("Showing {} conversations", threads.len())),
+                        Theme::muted("•"),
+                        Theme::muted(&format!("Refreshing every {}s", interval))
+                    )?;
+                }
+            }
+            Err(e) => {
+                writeln!(stdout, "\r{} {}", Theme::cross(), Theme::error(&format!("{}", e)))?;
+            }
+        }
+
+        writeln!(stdout, "\r")?;
+        writeln!(stdout, "\r{}", Theme::muted("Press 'q' to quit"))?;
+        stdout.flush()?;
+
+        // Wait for interval, but check for 'q' key every 100ms
+        let check_interval = Duration::from_millis(100);
+        let total_checks = (interval * 1000) / 100;
+
+        for _ in 0..total_checks {
+            if event::poll(check_interval)? {
+                if let Event::Key(key_event) = event::read()? {
+                    if key_event.kind == KeyEventKind::Press {
+                        if matches!(key_event.code, KeyCode::Char('q') | KeyCode::Esc) {
+                            // Restore terminal
+                            execute!(stdout, cursor::Show)?;
+                            terminal::disable_raw_mode()?;
+                            println!("\r");
+                            return Ok(());
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Print thread summary for watch mode (with \r for raw mode)
+fn print_thread_summary_watch(stdout: &mut io::Stdout, index: usize, thread: &Thread) -> Result<()> {
+    let username = thread.users.first().map(|u| u.username.as_str()).unwrap_or("unknown");
+
+    let title = thread
+        .thread_title
+        .clone()
+        .unwrap_or_else(|| username.to_string());
+
+    let last_msg = thread
+        .last_message_text
+        .as_ref()
+        .map(|s| {
+            if s.len() > 40 {
+                format!("{}...", &s[..37])
+            } else {
+                s.clone()
+            }
+        })
+        .unwrap_or_else(|| "[no messages]".to_string());
+
+    let time_ago = thread
+        .last_message_timestamp
+        .as_ref()
+        .map(|t| format_time_ago_colored(t))
+        .unwrap_or_else(|| Theme::timestamp("").to_string());
+
+    let unread_indicator = if thread.has_unread.unwrap_or(false) {
+        format!("{} ", Theme::unread_dot())
+    } else {
+        "  ".to_string()
+    };
+
+    writeln!(
+        stdout,
+        "\r{}{:>2}. {} {} {}",
+        unread_indicator,
+        index,
+        title,
+        Theme::muted(&format!("@{}", username)),
+        time_ago
+    )?;
+    writeln!(stdout, "\r     └ {}", Theme::muted(&last_msg))?;
 
     Ok(())
 }

@@ -68,6 +68,10 @@ enum Commands {
         /// Interactive mode with arrow key navigation
         #[arg(short, long)]
         interactive: bool,
+
+        /// Watch mode - auto-refresh every N seconds (default: 5)
+        #[arg(short, long)]
+        watch: Option<Option<u64>>,
     },
 
     /// Open chat by inbox number (eg: ig open 1)
@@ -162,9 +166,13 @@ async fn main() -> Result<()> {
 
         Commands::Me => commands::show_me(&client).await,
 
-        Commands::Inbox { limit, unread, interactive } => {
+        Commands::Inbox { limit, unread, interactive, watch } => {
             if interactive {
                 commands::show_inbox_interactive(&client, limit).await
+            } else if let Some(interval) = watch {
+                // Watch mode: default to 5 seconds if no value provided
+                let seconds = interval.unwrap_or(5);
+                commands::show_inbox_watch(&client, limit, unread, seconds).await
             } else {
                 commands::show_inbox(&client, limit, unread).await
             }
