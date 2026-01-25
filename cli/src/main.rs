@@ -6,6 +6,7 @@
 mod client;
 mod colors;
 mod commands;
+mod completer;
 mod crypto;
 mod models;
 mod spinner;
@@ -185,6 +186,19 @@ async fn main() -> Result<()> {
             commands::send_to_thread(&client, &thread_id, message.as_deref()).await
         }
 
-        Commands::Chat { username } => commands::chat_with_user(&client, &username).await,
+        Commands::Chat { username } => {
+            // Fetch usernames from recent conversations for tab completion
+            let usernames = match client.get_inbox(20).await {
+                Ok(inbox) => {
+                    inbox.threads
+                        .unwrap_or_default()
+                        .iter()
+                        .flat_map(|t| t.users.iter().map(|u| u.username.clone()))
+                        .collect()
+                }
+                Err(_) => Vec::new(), // Fall back to empty list if can't fetch
+            };
+            commands::chat_with_user(&client, &username, usernames).await
+        }
     }
 }

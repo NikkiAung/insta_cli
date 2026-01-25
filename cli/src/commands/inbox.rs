@@ -305,8 +305,14 @@ pub async fn open_by_number(client: &ApiClient, number: usize) -> Result<()> {
     let thread = &threads[number - 1];
     let username = thread.users.first().map(|u| u.username.as_str()).unwrap_or("unknown");
 
+    // Extract all usernames for tab completion
+    let usernames: Vec<String> = threads
+        .iter()
+        .flat_map(|t| t.users.iter().map(|u| u.username.clone()))
+        .collect();
+
     // Start chat with this user
-    chat_with_user(client, username).await
+    chat_with_user(client, username, usernames).await
 }
 
 /// Show thread by ID or @username
@@ -457,7 +463,14 @@ pub async fn show_inbox_interactive(client: &ApiClient, limit: u32) -> Result<()
     if let Some(idx) = should_open {
         let thread = &threads[idx];
         let username = thread.users.first().map(|u| u.username.as_str()).unwrap_or("unknown");
-        chat_with_user(client, username).await?;
+
+        // Extract all usernames for tab completion
+        let usernames: Vec<String> = threads
+            .iter()
+            .flat_map(|t| t.users.iter().map(|u| u.username.clone()))
+            .collect();
+
+        chat_with_user(client, username, usernames).await?;
     }
 
     Ok(())

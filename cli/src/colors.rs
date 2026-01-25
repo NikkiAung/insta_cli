@@ -172,6 +172,12 @@ impl Theme {
         let (r, g, b) = instagram::BLUE;
         "●".truecolor(r, g, b)
     }
+
+    /// Input prompt
+    pub fn prompt(text: &str) -> ColoredString {
+        let (r, g, b) = instagram::PINK;
+        text.truecolor(r, g, b).bold()
+    }
 }
 
 /// Print the Instagram-gradient banner
